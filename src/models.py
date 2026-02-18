@@ -444,6 +444,16 @@ def regression_valuation(
     else:
         predicted_price = float(np.mean(estimates))
 
+    # Sanity clamp — regression can blow up when EBITDA is large and multiples
+    # are noisy (energy, industrials). Cap at 4x the median peer price.
+    peer_prices = [p.get("current_price", 0) for p in peer_metrics if p.get("current_price", 0) > 0]
+    if peer_prices:
+        peer_median = float(np.median(peer_prices))
+        target_price = target_metrics.get("current_price", 0) or 0
+        # Use whichever reference is higher so we don't clip legitimate upsides
+        price_ref = max(peer_median, target_price)
+        predicted_price = min(predicted_price, price_ref * 4.0)
+
     predicted_price = max(0, predicted_price)
     spread = np.std(estimates) if len(estimates) > 1 else predicted_price * 0.15
 
