@@ -38,15 +38,20 @@ st.set_page_config(
 # ── CSS ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-/* Mobile responsive */
-@media (max-width: 768px) {
-    [data-testid='stMetricValue'] { font-size: 15px !important; }
-    .stTabs [data-baseweb='tab'] { padding: 6px 8px !important; font-size: 11px !important; }
-    .block-container { padding: 12px 8px !important; }
-    h2 { font-size: 18px !important; }
-    section[data-testid='stSidebar'] > div { padding: 8px !important; }
-}
 .stDataFrame { overflow-x: auto !important; }
+@media (max-width: 768px) {
+    .block-container { padding: 8px 6px 40px 6px !important; max-width: 100% !important; }
+    [data-testid="stMetricValue"] { font-size: 14px !important; line-height: 1.2 !important; }
+    [data-testid="stMetricLabel"] { font-size: 10px !important; }
+    [data-testid="stMetricDelta"] { font-size: 10px !important; }
+    .stTabs [data-baseweb="tab-list"] { overflow-x: auto !important; flex-wrap: nowrap !important; }
+    .stTabs [data-baseweb="tab"] { padding: 6px 10px !important; font-size: 11px !important; white-space: nowrap !important; flex-shrink: 0 !important; }
+    section[data-testid="stSidebar"] > div { padding: 8px 10px !important; }
+    h1 { font-size: 20px !important; } h2 { font-size: 16px !important; } h3 { font-size: 14px !important; }
+    .stButton > button { font-size: 12px !important; padding: 6px 8px !important; }
+    .stSlider { width: 100% !important; }
+    hr { margin: 8px 0 !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -482,17 +487,17 @@ with col2:
 
 st.divider()
 
-# Key metrics
-c1,c2,c3,c4,c5,c6 = st.columns(6)
-with c1: st.metric("Price",    fmt(price))
-with c2: st.metric("Mkt Cap",  fmt_large(m.get("market_cap")))
-with c3: st.metric("Fwd P/E",  f"{m.get('pe_forward',0):.1f}x" if m.get("pe_forward") else "—")
-with c4: st.metric("FCF",      fmt_large(m.get("free_cashflow")))
+# Key metrics — 3 cols on mobile, 6 on desktop
 div_y = m.get("dividend_yield", 0) or 0
-# yfinance sometimes returns decimal (0.0256) sometimes percent (2.56) — normalize both
 div_y_pct = div_y if div_y > 1 else div_y * 100
-with c5: st.metric("Div Yield", f"{div_y_pct:.2f}%" if div_y else "—")
-with c6: st.metric("Beta",     f"{m.get('beta',0):.2f}" if m.get("beta") else "—")
+r1c1, r1c2, r1c3 = st.columns(3)
+with r1c1: st.metric("Price",   fmt(price))
+with r1c2: st.metric("Mkt Cap", fmt_large(m.get("market_cap")))
+with r1c3: st.metric("Fwd P/E", f"{m.get('pe_forward',0):.1f}x" if m.get("pe_forward") else "—")
+r2c1, r2c2, r2c3 = st.columns(3)
+with r2c1: st.metric("FCF",      fmt_large(m.get("free_cashflow")))
+with r2c2: st.metric("Div Yield", f"{div_y_pct:.2f}%" if div_y else "—")
+with r2c3: st.metric("Beta",      f"{m.get('beta',0):.2f}" if m.get("beta") else "—")
 
 st.divider()
 
@@ -505,20 +510,16 @@ if nd_capped:
         icon=None,
     )
 
-# WACC breakdown
+# WACC breakdown — 3 cols per row for mobile friendliness
 if st.session_state.wacc_data:
     wd = st.session_state.wacc_data
-    wc1,wc2,wc3,wc4,wc5 = st.columns(5)
-    with wc1: st.metric("WACC",           f"{wd['wacc']*100:.2f}%",
-                         help="Weighted Avg Cost of Capital — computed from beta, debt structure & sector")
-    with wc2: st.metric("Cost of Equity", f"{wd['cost_of_equity']*100:.2f}%",
-                         help="CAPM: Risk-Free Rate + Beta × Equity Risk Premium")
-    with wc3: st.metric("Cost of Debt",   f"{wd['after_tax_debt']*100:.2f}%",
-                         help="Sector-estimated pre-tax cost of debt, after tax shield")
-    with wc4: st.metric("Equity Weight",  f"{wd['equity_weight']*100:.1f}%",
-                         help="Market cap / (Market cap + Total debt)")
-    with wc5: st.metric("Beta",           f"{wd['beta']:.2f}",
-                         help="Market sensitivity — from yfinance")
+    wc1,wc2,wc3 = st.columns(3)
+    with wc1: st.metric("WACC", f"{wd['wacc']*100:.2f}%", help="Weighted Avg Cost of Capital")
+    with wc2: st.metric("Cost of Equity", f"{wd['cost_of_equity']*100:.2f}%", help="CAPM: Rf + Beta x ERP")
+    with wc3: st.metric("Cost of Debt", f"{wd['after_tax_debt']*100:.2f}%", help="After-tax cost of debt")
+    wc4,wc5,_ = st.columns(3)
+    with wc4: st.metric("Equity Weight", f"{wd['equity_weight']*100:.1f}%", help="Market cap / (Market cap + Debt)")
+    with wc5: st.metric("Beta", f"{wd['beta']:.2f}", help="Market sensitivity from yfinance")
     st.divider()
 
 # Model results
@@ -545,8 +546,11 @@ if is_fin:
                 err = (r.get("error","") or "")[:28] if r else "Not run"
                 st.metric(label, "—", err)
 else:
-    mc1,mc2,mc3,mc4,mc5 = st.columns(5)
-    for col, (key, label) in zip([mc1,mc2,mc3,mc4,mc5], MODEL_LABELS.items()):
+    # 3 cols row 1, 2 cols row 2 — works on mobile and desktop
+    model_items = list(MODEL_LABELS.items())
+    row1 = st.columns(3)
+    row2 = st.columns(3)
+    for col, (key, label) in zip(row1 + row2, model_items):
         r = mr.get(key, {})
         with col:
             if r and not r.get("error") and r.get("intrinsic_value"):
@@ -554,7 +558,7 @@ else:
                 diff = ((v/price)-1)*100 if price else 0
                 st.metric(label, fmt(v), f"{diff:+.1f}%")
             else:
-                st.metric(label, "—", r.get("error","Not run")[:30] if r else "Not run")
+                st.metric(label, "—", (r.get("error","Not run") or "Not run")[:30] if r else "Not run")
 
 st.divider()
 
