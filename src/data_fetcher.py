@@ -380,6 +380,13 @@ class DataFetcher:
             "currency": info.get("currency", "USD"),
             "exchange": info.get("exchange", ""),
             "description": info.get("longBusinessSummary", ""),
+            "ceo": next((o.get("name","") for o in info.get("companyOfficers",[]) if "Chief Executive" in o.get("title","")), ""),
+            "city": info.get("city", ""),
+            "state": info.get("state", ""),
+            "country": info.get("country", ""),
+            "website": info.get("website", ""),
+            "employees": safe(info.get("fullTimeEmployees"), None),
+            "founded": info.get("founded", ""),
             # Price
             "current_price": safe(
                 info.get("currentPrice") or

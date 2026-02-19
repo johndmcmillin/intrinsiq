@@ -613,7 +613,7 @@ else:
 st.divider()
 
 # Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Overview", "🔮 DCF Detail", "🏢 Comps", "🔄 Inverse DCF", "🌡️ Sensitivity"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 Overview", "🔮 DCF Detail", "🏢 Comps", "🔄 Inverse DCF", "🌡️ Sensitivity", "🏢 About"])
 
 with tab1:
     hist = fetch_history(m["ticker"])
@@ -765,6 +765,59 @@ with tab5:
         st.warning("Sensitivity requires positive FCF.")
 
 
+
+with tab6:
+    desc      = m.get("description", "")
+    ceo       = m.get("ceo", "")
+    city      = m.get("city", "")
+    state     = m.get("state", "")
+    country   = m.get("country", "")
+    website   = m.get("website", "")
+    employees = m.get("employees")
+
+    st.markdown(f"### {m.get('name', ticker)}")
+    loc_parts = [x for x in [city, state, country] if x]
+    st.caption(" · ".join(filter(None, [" · ".join(loc_parts), m.get("sector",""), m.get("industry","")])))
+
+    f1, f2, f3 = st.columns(3)
+    with f1: st.metric("CEO", ceo or "—")
+    with f2: st.metric("Employees", f"{employees:,.0f}" if employees else "—")
+    with f3:
+        if website:
+            st.markdown("**Website**")
+            st.markdown(f"[{website.replace('https://','').replace('http://','').rstrip('/')}]({website})")
+        else:
+            st.metric("Website", "—")
+
+    st.divider()
+
+    if desc:
+        st.markdown("**About**")
+        if len(desc) > 500:
+            st.write(desc[:500] + "...")
+            with st.expander("Read more"):
+                st.write(desc)
+        else:
+            st.write(desc)
+    else:
+        st.info("Company description not available.")
+
+    st.divider()
+
+    target_mean = m.get("target_mean_price")
+    target_low  = m.get("target_low_price")
+    target_high = m.get("target_high_price")
+    rating      = m.get("analyst_rating", "")
+    count       = m.get("analyst_count", 0)
+    if target_mean:
+        st.markdown("**Analyst Consensus**")
+        a1, a2, a3, a4 = st.columns(4)
+        upside_str = f"{((target_mean/price)-1)*100:+.1f}% vs market" if price else ""
+        with a1: st.metric("Mean Target",  fmt(target_mean), upside_str)
+        with a2: st.metric("Low Target",   fmt(target_low))
+        with a3: st.metric("High Target",  fmt(target_high))
+        with a4: st.metric("Rating", rating.replace("-"," ").title() if rating else "—",
+                            f"{count} analysts" if count else "")
 
 # Footer
 st.divider()
