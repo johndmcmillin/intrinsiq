@@ -30,6 +30,16 @@ def _safe_key(key: str) -> str:
     return hashlib.md5(key.encode()).hexdigest()
 
 
+def invalidate_ticker_cache(ticker: str):
+    # Delete all cache files associated with a specific ticker
+    if not os.path.exists(CACHE_DIR):
+        return
+    key = ticker.upper()
+    for path in [_meta_path(key), _data_path(key)]:
+        if os.path.exists(path):
+            os.remove(path)
+
+
 def _meta_path(key: str) -> str:
     os.makedirs(CACHE_DIR, exist_ok=True)
     return os.path.join(CACHE_DIR, f"{_safe_key(key)}.meta")

@@ -11,7 +11,7 @@ import sys, os
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from src.data_fetcher import DataFetcher
+from src.data_fetcher import DataFetcher, invalidate_ticker_cache
 from src.models import (
     dcf_valuation, ddm_valuation, ev_ebitda_valuation,
     pe_relative_valuation, regression_valuation, inverse_dcf,
@@ -247,7 +247,16 @@ with st.sidebar:
     ticker_input = st.text_input("Stock Ticker", value="JNJ", max_chars=10,
                                   placeholder="e.g. AAPL, KO, JPM")
     ticker = ticker_input.strip().upper()
-    analyze_btn = st.button("▶  ANALYZE", type="primary", use_container_width=True)
+    col_a, col_r = st.columns([4, 1])
+    with col_a:
+        analyze_btn = st.button("▶  ANALYZE", type="primary", use_container_width=True)
+    with col_r:
+        if st.button("🔄", use_container_width=True, help="Force refresh — clears cached data for this ticker and fetches fresh prices"):
+            invalidate_ticker_cache(ticker)
+            st.session_state.analysis_done = False
+            st.session_state.last_ticker = ""
+            st.toast(f"Cache cleared for {ticker}", icon="🔄")
+            st.rerun()
 
     st.divider()
 
