@@ -380,7 +380,7 @@ class DataFetcher:
             "currency": info.get("currency", "USD"),
             "exchange": info.get("exchange", ""),
             "description": info.get("longBusinessSummary", ""),
-            "ceo": next((o.get("name","") for o in info.get("companyOfficers",[]) if "Chief Executive" in o.get("title","")), ""),
+            "ceo": next((o.get("name","") for o in (info.get("companyOfficers") or []) if "Chief Executive" in (o.get("title") or "")), ""),
             "city": info.get("city", ""),
             "state": info.get("state", ""),
             "country": info.get("country", ""),
