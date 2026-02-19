@@ -512,18 +512,21 @@ if analyze_btn:
     if is_reit:
         div_y_reit = m.get("dividend_yield", 0) or 0
         div_y_reit = div_y_reit if div_y_reit > 1 else div_y_reit * 100
-        # High-yield REITs (O, PLD): lean on DDM + EV/EBITDA
-        # Tower REITs (AMT) pay lower yield — lean on EV/EBITDA + regression
+        # DDM consistently undervalues REITs — cost of equity too high, growth too
+        # conservative, doesn't capture NAV appreciation or rent roll upside.
+        # EV/EBITDA and regression are the reliable anchors for all REIT types.
         if div_y_reit >= 3.0:
-            st.session_state["_pending_dcf"] = 5
-            st.session_state["_pending_ddm"] = 30
-            st.session_state["_pending_ev"]  = 35
-            st.session_state["_pending_reg"] = 25
-            st.session_state["_pending_pe"]  = 5
-        else:
+            # Income REITs (O): modest DDM weight, EV/EBITDA + regression dominant
             st.session_state["_pending_dcf"] = 5
             st.session_state["_pending_ddm"] = 15
-            st.session_state["_pending_ev"]  = 40
+            st.session_state["_pending_ev"]  = 45
+            st.session_state["_pending_reg"] = 30
+            st.session_state["_pending_pe"]  = 5
+        else:
+            # Growth REITs (PLD, AMT): DDM minimal, EV/EBITDA + regression only
+            st.session_state["_pending_dcf"] = 5
+            st.session_state["_pending_ddm"] = 5
+            st.session_state["_pending_ev"]  = 50
             st.session_state["_pending_reg"] = 35
             st.session_state["_pending_pe"]  = 5
         st.session_state["_reit_flag"] = True
@@ -634,6 +637,18 @@ if st.session_state.get("_reit_flag"):
         f"EV/EBITDA, DDM, and Regression — the standard valuation approach for REITs.",
         icon=None
     )
+    # Growth REIT caveat — low yield signals market is pricing rent roll upside,
+    # contracted infrastructure growth, or NAV premium not in current financials
+    div_y_reit_disp = m.get("dividend_yield", 0) or 0
+    div_y_reit_disp = div_y_reit_disp if div_y_reit_disp > 1 else div_y_reit_disp * 100
+    if div_y_reit_disp < 3.5:
+        st.info(
+            f"📈 **Growth REIT Note** — {m.get('name', ticker)} trades at a premium to NAV due to "
+            f"embedded rent roll upside, contracted long-term revenue, or sector scarcity value. "
+            f"Fundamental models may materially understate market value. "
+            f"Use this valuation as a floor, not a target.",
+            icon=None
+        )
 if is_fin:
     mr["excess_return"] = excess_return_valuation(
         book_value_per_share=m.get("book_value", 0) or 0,
