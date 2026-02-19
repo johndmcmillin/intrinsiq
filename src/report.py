@@ -130,7 +130,7 @@ def fmt(v, prefix="$", decimals=2):
     if v is None:
         return "N/A"
     try:
-        return f"{prefix}{v:,.{decimals}f}"
+        return f"{prefix}{float(v):,.{decimals}f}"
     except Exception:
         return "N/A"
 
@@ -138,6 +138,7 @@ def fmt_pct(v, decimals=1):
     if v is None:
         return "N/A"
     try:
+        v = float(v)
         sign = "+" if v > 0 else ""
         return f"{sign}{v:.{decimals}f}%"
     except Exception:
@@ -335,7 +336,12 @@ def build_valuation_bridge(story, styles, mr, weights, price):
             iv = r.get("intrinsic_value") if isinstance(r, dict) else None
 
         val_str  = fmt(iv) if iv else "N/A"
-        diff_pct = ((price - iv) / iv * 100) if (iv and price) else None
+        try:
+            iv_f    = float(iv) if iv else None
+            price_f = float(price) if price else None
+            diff_pct = ((price_f - iv_f) / iv_f * 100) if (iv_f and price_f) else None
+        except Exception:
+            diff_pct = None
         diff_str = fmt_pct(diff_pct) if diff_pct is not None else "—"
         diff_color = RED if (diff_pct and diff_pct > 5) else (GREEN if (diff_pct and diff_pct < -5) else SLATE)
 
@@ -537,6 +543,14 @@ def generate_pdf_report(m: dict, mr: dict, weights: dict, bv, upside, price, sen
     styles = make_styles()
     story  = []
     now    = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+
+    # Coerce all numeric inputs — guard against strings slipping through
+    try: bv    = float(bv)    if bv    is not None else None
+    except Exception: bv = None
+    try: price = float(price) if price is not None else None
+    except Exception: price = None
+    try: upside = float(upside) if upside is not None else None
+    except Exception: upside = None
 
     # Add market cap formatted string to m for convenience
     mc = m.get("market_cap")
