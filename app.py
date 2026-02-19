@@ -98,9 +98,10 @@ WEIGHT_PRESETS = {
     # Dividend/Value: heavy DDM + P/E for yield-focused companies (KO, PEP, JNJ)
     "💰 Dividend / Value":    dict(dcf=15, ddm=40, ev=15, pe=20, reg=10),
 
-    # Industrial/Energy: EV/EBITDA is king for capital-intensive businesses
-    # DCF works but sensitive to capex; moderate P/E; regression for comps check
-    "🏭 Industrial / Energy": dict(dcf=20, ddm=10, ev=40, pe=15, reg=15),
+    # Industrial/Energy: balanced — EV/EBITDA dominant but DCF valid for
+    # pure manufacturers (HON, RTX, LMT). Captive finance detection below
+    # auto-reduces DCF weight for companies like CAT and DE.
+    "🏭 Industrial / Energy": dict(dcf=25, ddm=5, ev=35, pe=20, reg=15),
 
     # Financials: handled by specialist models (excess return + P/BV)
     # Sliders here mainly control DDM and P/E weighting
@@ -424,12 +425,37 @@ if analyze_btn:
     # Auto-zero DDM if dividend yield below 0.5% — DDM meaningless for non-payers
     div_y_raw = m.get("dividend_yield", 0) or 0
     div_y_pct = div_y_raw if div_y_raw > 1 else div_y_raw * 100
-    if div_y_pct < 0.5:
+    if div_y_pct < 1.0:  # zero DDM for yields below 1% — too small to be meaningful
         current_ddm = st.session_state.get("w_ddm", 0)
         if current_ddm > 0:
             # Redistribute DDM weight to DCF
             st.session_state["w_dcf"] = st.session_state.get("w_dcf", 35) + current_ddm
             st.session_state["w_ddm"] = 0
+
+    # ── Captive finance detection ─────────────────────────────────────────
+    # Companies with captive finance arms (CAT, DE, CNH, AGCO) report massive
+    # debt from their lending subsidiaries. This inflates D/E and destroys DCF
+    # net debt calculations. Detect by: sector is Industrials/Consumer Disc AND
+    # debt-to-equity > 2.0. For these, slash DCF weight and boost EV/EBITDA.
+    de_raw = m.get("debt_to_equity", 0) or 0
+    # yfinance returns debtToEquity as percent (250 = 2.5x), normalize
+    de_ratio = de_raw / 100 if de_raw > 20 else de_raw
+    captive_sectors = ("Industrials", "Consumer Discretionary", "Consumer Cyclical")
+    if sector in captive_sectors and de_ratio > 2.0:
+        current_dcf = st.session_state.get("w_dcf", 25)
+        current_ev  = st.session_state.get("w_ev", 35)
+        current_reg = st.session_state.get("w_reg", 15)
+        if current_dcf > 10:
+            # Shift DCF weight to EV/EBITDA and regression
+            shift = current_dcf - 10
+            st.session_state["w_dcf"] = 10
+            st.session_state["w_ev"]  = min(current_ev + int(shift * 0.6), 55)
+            st.session_state["w_reg"] = min(current_reg + int(shift * 0.4), 30)
+        st.session_state["_captive_finance_flag"] = True
+        st.session_state["_captive_de_ratio"] = round(de_ratio, 2)
+    else:
+        st.session_state["_captive_finance_flag"] = False
+        st.session_state["_captive_de_ratio"] = None
 
     st.session_state.metrics       = m
     st.session_state.peer_data     = peers
@@ -492,6 +518,16 @@ mr = {
 
 # Financial sector: add specialist models and override weights
 is_fin = st.session_state.get("_is_financial", False) or is_financial_sector(m.get("sector", ""))
+
+# Captive finance warning banner
+if st.session_state.get("_captive_finance_flag"):
+    de = st.session_state.get("_captive_de_ratio", "")
+    st.warning(
+        f"⚠️ **Captive Finance Detected** (D/E: {de}x) — {m.get('name', ticker)} operates a "
+        f"captive lending arm that inflates reported debt. DCF weight auto-reduced; "
+        f"EV/EBITDA and Regression weighted higher for more reliable valuation.",
+        icon=None
+    )
 if is_fin:
     mr["excess_return"] = excess_return_valuation(
         book_value_per_share=m.get("book_value", 0) or 0,

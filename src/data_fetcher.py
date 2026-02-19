@@ -418,7 +418,10 @@ class DataFetcher:
             "employees": safe(info.get("fullTimeEmployees"), None),
             "founded": info.get("founded", ""),
             # Price
+            # fast_info.last_price is real-time and far more reliable than
+            # info["currentPrice"] which is often stale for fast-moving stocks
             "current_price": safe(
+                (stock.fast_info.last_price if hasattr(stock, "fast_info") else None) or
                 info.get("currentPrice") or
                 info.get("regularMarketPrice") or
                 info.get("previousClose"), None
@@ -430,6 +433,7 @@ class DataFetcher:
             # Shares & debt
             "shares_outstanding": safe(info.get("sharesOutstanding"), 1),
             "total_debt": safe(info.get("totalDebt"), 0),
+            "debt_to_equity": safe(info.get("debtToEquity"), 0),  # yfinance returns as ratio (e.g. 2.5 = 250%)
             "cash": safe(info.get("totalCash") or info.get("cash"), 0),
             "net_debt": safe(info.get("totalDebt"), 0) - safe(info.get("totalCash") or info.get("cash"), 0),
             # Income
