@@ -677,7 +677,7 @@ if is_fin:
 weights = {"dcf": w_dcf/100, "ddm": w_ddm/100, "ev_ebitda": w_ev/100, "pe_relative": w_pe/100, "regression": w_reg/100}
 bl      = compute_blended_value(mr, weights)
 bv      = bl.get("blended_value")
-upside  = ((price - bv) / bv) * 100 if bv and price else None
+upside  = ((bv - price) / price) * 100 if bv and price else None
 
 # Sensitivity recomputes live too (fast — pure math)
 sens = sensitivity_dcf(
@@ -703,9 +703,9 @@ with col2:
     cache_tag = "🟡 Cached" if m.get("_from_cache") else "🟢 Live"
     st.caption(cache_tag)
     if bv:
-        color = "red" if (upside or 0) > 5 else ("green" if (upside or 0) < -5 else "orange")
+        color = "green" if (upside or 0) > 5 else ("red" if (upside or 0) < -5 else "orange")
         st.markdown(f"### :{color}[${bv:.2f}]")
-        st.caption(f"vs ${price:.2f} market · {upside:+.1f}%")
+        st.caption(f"vs ${price:.2f} market · {upside:+.1f}% upside")
 
 # PDF Export
 try:

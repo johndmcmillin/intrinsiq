@@ -474,7 +474,7 @@ def create_regression_importance_chart(feature_importance: dict, ticker: str) ->
 
 def create_upside_gauge(upside_pct: float, ticker: str) -> go.Figure:
     clamped = max(-100, min(200, upside_pct))
-    color = ACCENT_RED if clamped > 10 else (ACCENT_GREEN if clamped < -10 else ACCENT_AMBER)
+    color = ACCENT_GREEN if clamped > 10 else (ACCENT_RED if clamped < -10 else ACCENT_AMBER)
 
     fig = go.Figure(go.Indicator(
         mode="gauge+number+delta",
@@ -492,9 +492,9 @@ def create_upside_gauge(upside_pct: float, ticker: str) -> go.Figure:
             bgcolor=BG_CARD,
             borderwidth=0,
             steps=[
-                dict(range=[-100, -10], color="rgba(16,185,129,0.12)"),   # green = undervalued
+                dict(range=[-100, -10], color="rgba(239,68,68,0.12)"),    # red = overvalued
                 dict(range=[-10, 10],   color="rgba(245,158,11,0.12)"),   # amber = fairly valued
-                dict(range=[10, 200],   color="rgba(239,68,68,0.12)"),    # red = overvalued
+                dict(range=[10, 200],   color="rgba(16,185,129,0.12)"),   # green = upside
             ],
             threshold=dict(
                 line=dict(color=TEXT_MUTED, width=2),

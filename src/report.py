@@ -147,13 +147,13 @@ def fmt_pct(v, decimals=1):
 def valuation_label(pct):
     if pct is None:
         return ("N/A", SLATE)
-    if pct > 40:   return ("Significantly Overvalued",  RED)
-    if pct > 15:   return ("Overvalued",                colors.HexColor("#ea580c"))
-    if pct > 5:    return ("Slightly Overvalued",        ORANGE)
+    if pct > 40:   return ("Significantly Undervalued", PURPLE)
+    if pct > 15:   return ("Undervalued",               BLUE)
+    if pct > 5:    return ("Slightly Undervalued",       colors.HexColor("#059669"))
     if pct > -5:   return ("Fairly Valued",              GREEN)
-    if pct > -15:  return ("Slightly Undervalued",       colors.HexColor("#059669"))
-    if pct > -40:  return ("Undervalued",                BLUE)
-    return ("Significantly Undervalued",                 PURPLE)
+    if pct > -15:  return ("Slightly Overvalued",        ORANGE)
+    if pct > -40:  return ("Overvalued",                 colors.HexColor("#ea580c"))
+    return ("Significantly Overvalued",                  RED)
 
 def section_rule(story):
     story.append(Spacer(1, 4))
