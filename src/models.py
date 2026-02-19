@@ -174,6 +174,13 @@ def ddm_valuation(
             "intrinsic_value": None,
         }
 
+    # Sanity check — dividend above $50/share is almost certainly bad data
+    if current_dividend > 50:
+        return {
+            "error": f"Dividend ${current_dividend:.2f} looks like corrupt data — skipping DDM",
+            "intrinsic_value": None,
+        }
+
     if cost_of_equity <= dividend_growth_rate:
         return {
             "error": "Cost of equity must exceed dividend growth rate",

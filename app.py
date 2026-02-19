@@ -109,8 +109,9 @@ WEIGHT_PRESETS = {
     # Healthcare: DCF for pipeline value; P/E for mature pharma; EV/EBITDA for comps
     "🏥 Healthcare":          dict(dcf=40, ddm=5,  ev=20, pe=25, reg=10),
 
-    # Consumer Staples: DDM meaningful (steady dividends); FCF-based DCF; P/E comps
-    "🛒 Consumer Staples":    dict(dcf=25, ddm=30, ev=15, pe=20, reg=10),
+    # Consumer Staples: DDM + EV/EBITDA dominant — DCF undervalues brand moats
+    # KO/PEP/PG/CL trade at premium FCF multiples the market assigns to stability
+    "🛒 Consumer Staples":    dict(dcf=15, ddm=35, ev=25, pe=20, reg=5),
 
     # Comm Services: mix — streaming/digital = DCF; telco = DDM; EV/EBITDA for all
     "📡 Comm. Services":      dict(dcf=30, ddm=15, ev=25, pe=20, reg=10),
@@ -540,6 +541,8 @@ st.divider()
 # Key metrics — 3 cols on mobile, 6 on desktop
 div_y = m.get("dividend_yield", 0) or 0
 div_y_pct = div_y if div_y > 1 else div_y * 100
+# Flag if yield looks abnormally high (>15%) — likely bad data
+div_y_display = f"{div_y_pct:.2f}% ⚠️" if div_y_pct > 15 else (f"{div_y_pct:.2f}%" if div_y else "—")
 r1c1, r1c2, r1c3 = st.columns(3)
 with r1c1: st.metric("Price",   fmt(price))
 with r1c2: st.metric("Mkt Cap", fmt_large(m.get("market_cap")))
@@ -547,7 +550,7 @@ with r1c3: st.metric("Fwd P/E", f"{m.get('pe_forward',0):.1f}x" if m.get("pe_for
 r2c1, r2c2, r2c3 = st.columns(3)
 fcf_display = "N/A (Bank)" if is_financial_sector(m.get("sector","")) else fmt_large(m.get("free_cashflow"))
 with r2c1: st.metric("FCF", fcf_display)
-with r2c2: st.metric("Div Yield", f"{div_y_pct:.2f}%" if div_y else "—")
+with r2c2: st.metric("Div Yield", div_y_display)
 with r2c3: st.metric("Beta",      f"{m.get('beta',0):.2f}" if m.get("beta") else "—")
 
 st.divider()
@@ -829,6 +832,6 @@ st.markdown(
     'Investing involves risk including loss of principal. '
     'Not a registered investment advisor. '
     'Always consult a qualified financial professional before making investment decisions.<br>'
-    '© 2026 McMillin Analytics · All rights reserved.</div>',
+    '© 2025 McMillin Analytics · All rights reserved.</div>',
     unsafe_allow_html=True,
 )

@@ -420,7 +420,8 @@ class DataFetcher:
             "roa": safe(info.get("returnOnAssets"), 0),
             "tangible_book_value": safe(info.get("tangibleBookValue"), 0),
             "dividend_rate": safe(info.get("dividendRate"), 0),
-            "dividend_yield": safe(info.get("dividendYield"), 0),
+            "dividend_yield": min(safe(info.get("dividendYield"), 0) or 0, 0.20),  # cap at 20% — yfinance occasionally returns corrupt values
+            "_dividend_yield_raw": safe(info.get("dividendYield"), 0),
             "payout_ratio": safe(info.get("payoutRatio"), 0),
             # Multiples
             "pe_trailing": safe(info.get("trailingPE"), 0),
