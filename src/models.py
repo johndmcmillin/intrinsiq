@@ -38,20 +38,31 @@ warnings.filterwarnings("ignore")
 
 SECTOR_NET_DEBT_CAP = {
     # Max net debt as multiple of EBITDA
-    "Industrials":            4.0,
+    # Industrials/autos cap tightly — captive finance arms inflate reported debt
+    "Industrials":            3.5,
     "Consumer Discretionary": 3.0,
     "Consumer Cyclical":      3.0,
-    "Technology":             2.0,
-    "Healthcare":             3.5,
-    "Consumer Staples":       3.5,
-    "Consumer Defensive":     3.5,
+    # Tech typically net cash — cap protects against acquisitions distorting DCF
+    "Technology":             2.5,
+    # Healthcare: moderate leverage, M&A heavy
+    "Healthcare":             4.0,
+    # Staples: stable cash flows support more leverage
+    "Consumer Staples":       4.0,
+    "Consumer Defensive":     4.0,
+    # Energy: asset-heavy, debt tied to reserves — tighter cap
     "Energy":                 2.5,
-    "Communication Services": 4.0,
-    "Utilities":              6.0,
-    "Real Estate":            8.0,
+    # Comm services: heavy capex (spectrum/fiber), higher leverage accepted
+    "Communication Services": 5.0,
+    # Utilities: regulated, predictable — high leverage is normal
+    "Utilities":              7.0,
+    # REITs: debt is core to the model, very high cap
+    "Real Estate":            10.0,
+    # Materials: moderate
     "Basic Materials":        3.0,
-    "Financials":             None,   # banks — don't cap, use P/BV instead
+    # Financials: debt IS the business — don't cap
+    "Financials":             None,
     "Financial Services":     None,
+    "Insurance":              None,
 }
 
 def sanitize_net_debt(net_debt: float, ebitda: float, sector: str) -> tuple:
@@ -219,16 +230,35 @@ def ev_ebitda_valuation(
     if target_ebitda <= 0:
         return {"error": "EBITDA must be positive for EV/EBITDA valuation", "intrinsic_value": None}
 
+    # Sector-specific EV/EBITDA caps — prevents blowup for high-EBITDA cos
+    # with noisy peer multiples (tech, comm services especially)
+    SECTOR_EV_CAP = {
+        "Technology": 40, "Communication Services": 30,
+        "Consumer Discretionary": 25, "Consumer Cyclical": 25,
+        "Healthcare": 30, "Consumer Staples": 22, "Consumer Defensive": 22,
+        "Industrials": 18, "Energy": 12, "Basic Materials": 12,
+        "Utilities": 18, "Real Estate": 25,
+        "Financials": 15, "Financial Services": 15,
+    }
+    # Get sector from first peer that has it, or use a wide default
+    peer_sector = next((p.get("sector","") for p in peer_metrics if p.get("sector")), "")
+    ev_cap = SECTOR_EV_CAP.get(peer_sector, 35)
+
     valid_peers = [
         p for p in peer_metrics
-        if p.get("ev_ebitda") and 0 < p["ev_ebitda"] < 200
+        if p.get("ev_ebitda") and 0 < p["ev_ebitda"] < ev_cap
     ]
 
+    if len(valid_peers) < 2 and not multiple_override:
+        # Relax cap and try again
+        valid_peers = [p for p in peer_metrics if p.get("ev_ebitda") and 0 < p["ev_ebitda"] < 100]
     if len(valid_peers) < 2 and not multiple_override:
         return {"error": "Insufficient peer EV/EBITDA data", "intrinsic_value": None}
 
     multiples = [p["ev_ebitda"] for p in valid_peers]
-    median_multiple = multiple_override or np.median(multiples)
+    median_multiple = multiple_override or float(np.median(multiples))
+    # Hard cap on the multiple actually used
+    median_multiple = min(median_multiple, ev_cap)
     mean_multiple = np.mean(multiples) if multiples else median_multiple
     min_multiple = np.min(multiples) if multiples else median_multiple
     max_multiple = np.max(multiples) if multiples else median_multiple
@@ -643,13 +673,34 @@ def compute_dynamic_wacc(
     # WACC
     wacc = equity_weight * cost_of_equity + debt_weight * after_tax_debt
 
-    # Apply sector floor/ceiling — utilities/REITs can go lower, high-beta tech higher
+    # Sector WACC floors — calibrated to academic/practitioner consensus
     sector_floors = {
-        "Utilities": 0.055, "Real Estate": 0.060,
-        "Consumer Staples": 0.065, "Healthcare": 0.070,
+        # Regulated, low-risk sectors get lower floors
+        "Utilities":              0.050,
+        "Real Estate":            0.055,
+        # Stable consumer sectors
+        "Consumer Staples":       0.060,
+        "Consumer Defensive":     0.060,
+        # Healthcare — moderate risk
+        "Healthcare":             0.065,
+        # Financials — higher cost of equity, leverage-heavy
+        "Financials":             0.080,
+        "Financial Services":     0.080,
+        # Energy — commodity risk premium
+        "Energy":                 0.080,
+        # Industrials — cyclical
+        "Industrials":            0.070,
+        # Communication Services — mix of stable/growth
+        "Communication Services": 0.070,
+        # Tech — highest growth but beta-driven, floor keeps it reasonable
+        "Technology":             0.075,
+        "Consumer Discretionary": 0.075,
+        "Consumer Cyclical":      0.075,
+        # Materials — commodity exposure
+        "Basic Materials":        0.075,
     }
     wacc = max(wacc, sector_floors.get(sector, 0.065))
-    wacc = min(wacc, 0.18)  # Cap at 18%
+    wacc = min(wacc, 0.20)  # Cap at 20% — even TSLA/NVDA shouldn't exceed this
 
     return {
         "wacc": round(wacc, 4),
@@ -676,41 +727,50 @@ def suggest_dcf_assumptions(metrics: dict) -> dict:
     earn_growth = metrics.get("earnings_growth", 0) or 0
     beta        = metrics.get("beta", 1.0) or 1.0
 
-    # Sector-specific g1 floors (historical FCF CAGR anchors)
-    # These prevent TTM noise from dragging defaults too low
+    # Sector-specific g1 floors — anchored to historical FCF CAGR by sector
+    # Prevents bad TTM data from making assumptions unrealistically low
     SECTOR_G1_FLOOR = {
-        "Technology":             0.12,  # tech compounds fast
-        "Consumer Discretionary": 0.10,
-        "Consumer Cyclical":      0.10,
-        "Healthcare":             0.08,
-        "Financials":             0.06,
-        "Financial Services":     0.06,
-        "Consumer Staples":       0.06,  # KO/PEP ~6-8% FCF CAGR
-        "Consumer Defensive":     0.06,
-        "Energy":                 0.05,
-        "Industrials":            0.07,
-        "Communication Services": 0.08,
-        "Utilities":              0.04,
-        "Real Estate":            0.05,
-        "Basic Materials":        0.05,
+        # High-growth tech: MSFT/AAPL/GOOGL all compound FCF 10-15%+ historically
+        "Technology":             0.10,
+        "Consumer Discretionary": 0.08,
+        "Consumer Cyclical":      0.08,
+        # Healthcare: mix of growth biopharma and mature pharma
+        "Healthcare":             0.07,
+        # Financials: earnings-based, slower
+        "Financials":             0.05,
+        "Financial Services":     0.05,
+        # Staples: mature, steady 5-7% FCF growth
+        "Consumer Staples":       0.05,
+        "Consumer Defensive":     0.05,
+        # Energy: volatile, commodity-driven, conservative floor
+        "Energy":                 0.03,
+        # Industrials: steady mid-single-digit growth
+        "Industrials":            0.05,
+        # Comm services: mix of mature (telco) and growth (streaming/digital)
+        "Communication Services": 0.06,
+        # Regulated utilities: slow, predictable
+        "Utilities":              0.03,
+        # REITs: FFO-driven, moderate growth
+        "Real Estate":            0.04,
+        "Basic Materials":        0.04,
     }
 
-    # Sector-specific g1 caps
+    # Sector-specific g1 caps — prevent overly optimistic assumptions
     SECTOR_G1_CAP = {
-        "Technology":             0.35,
+        "Technology":             0.40,  # NVDA-type outliers can grow faster
         "Consumer Discretionary": 0.30,
         "Consumer Cyclical":      0.30,
-        "Healthcare":             0.20,
+        "Healthcare":             0.25,
         "Financials":             0.15,
         "Financial Services":     0.15,
         "Consumer Staples":       0.12,
         "Consumer Defensive":     0.12,
-        "Energy":                 0.15,
-        "Industrials":            0.15,
-        "Communication Services": 0.20,
+        "Energy":                 0.20,  # oil price upswings can be sharp
+        "Industrials":            0.18,
+        "Communication Services": 0.25,
         "Utilities":              0.08,
-        "Real Estate":            0.10,
-        "Basic Materials":        0.12,
+        "Real Estate":            0.12,
+        "Basic Materials":        0.15,
     }
 
     floor = SECTOR_G1_FLOOR.get(sector, 0.06)
@@ -725,8 +785,24 @@ def suggest_dcf_assumptions(metrics: dict) -> dict:
     g1 = round(min(max(blended_g1, floor), cap) * 100, 1)
     g2 = round(g1 * 0.60, 1)   # stage 2 decelerates ~40% from stage 1
 
-    # Terminal: 2.5% for most, 3.0% for high-growth sectors
-    terminal = 3.0 if sector in ("Technology", "Consumer Discretionary", "Consumer Cyclical") else 2.5
+    # Terminal growth — anchored to long-run nominal GDP growth by sector
+    TERMINAL_BY_SECTOR = {
+        "Technology":             3.0,   # secular growth tailwinds
+        "Consumer Discretionary": 2.5,
+        "Consumer Cyclical":      2.5,
+        "Healthcare":             2.5,   # aging demographics support
+        "Financials":             2.5,
+        "Financial Services":     2.5,
+        "Consumer Staples":       2.0,   # mature, GDP-linked
+        "Consumer Defensive":     2.0,
+        "Energy":                 1.5,   # long-run transition headwinds
+        "Industrials":            2.5,
+        "Communication Services": 2.5,
+        "Utilities":              2.0,   # regulated, inflation-linked
+        "Real Estate":            2.5,
+        "Basic Materials":        2.0,
+    }
+    terminal = TERMINAL_BY_SECTOR.get(sector, 2.5)
 
     return {
         "g1": g1,

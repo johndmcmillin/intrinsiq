@@ -88,30 +88,59 @@ for k, v in [
 
 # ── Sector weight presets ──────────────────────────────────────────────────
 WEIGHT_PRESETS = {
+    # Balanced: good starting point for unknown companies
     "⚖️ Balanced":            dict(dcf=35, ddm=10, ev=20, pe=20, reg=15),
-    "💻 Tech / Growth":       dict(dcf=50, ddm=0,  ev=15, pe=25, reg=10),
-    "💰 Dividend / Value":    dict(dcf=20, ddm=35, ev=15, pe=20, reg=10),
-    "🏭 Industrial / Energy": dict(dcf=25, ddm=10, ev=35, pe=15, reg=15),
-    "🏦 Financials":          dict(dcf=15, ddm=20, ev=10, pe=35, reg=20),
+
+    # Tech/Growth: DCF-heavy, FCF is the story; no DDM (AAPL/MSFT/NVDA/GOOGL)
+    # EV/EBITDA less relevant for high-multiple tech; regression for sanity check
+    "💻 Tech / Growth":       dict(dcf=50, ddm=0,  ev=10, pe=30, reg=10),
+
+    # Dividend/Value: heavy DDM + P/E for yield-focused companies (KO, PEP, JNJ)
+    "💰 Dividend / Value":    dict(dcf=15, ddm=40, ev=15, pe=20, reg=10),
+
+    # Industrial/Energy: EV/EBITDA is king for capital-intensive businesses
+    # DCF works but sensitive to capex; moderate P/E; regression for comps check
+    "🏭 Industrial / Energy": dict(dcf=20, ddm=10, ev=40, pe=15, reg=15),
+
+    # Financials: handled by specialist models (excess return + P/BV)
+    # Sliders here mainly control DDM and P/E weighting
+    "🏦 Financials":          dict(dcf=0,  ddm=20, ev=0,  pe=35, reg=15),
+
+    # Healthcare: DCF for pipeline value; P/E for mature pharma; EV/EBITDA for comps
     "🏥 Healthcare":          dict(dcf=40, ddm=5,  ev=20, pe=25, reg=10),
-    "🛒 Consumer Staples":    dict(dcf=25, ddm=25, ev=20, pe=20, reg=10),
-    "📡 Comm. Services":      dict(dcf=30, ddm=10, ev=25, pe=25, reg=10),
-    "⚡ Utilities / REIT":    dict(dcf=20, ddm=30, ev=20, pe=20, reg=10),
+
+    # Consumer Staples: DDM meaningful (steady dividends); FCF-based DCF; P/E comps
+    "🛒 Consumer Staples":    dict(dcf=25, ddm=30, ev=15, pe=20, reg=10),
+
+    # Comm Services: mix — streaming/digital = DCF; telco = DDM; EV/EBITDA for all
+    "📡 Comm. Services":      dict(dcf=30, ddm=15, ev=25, pe=20, reg=10),
+
+    # Utilities/REIT: DDM-heavy (high yield, regulated); DCF for rate base growth
+    "⚡ Utilities / REIT":    dict(dcf=15, ddm=40, ev=20, pe=15, reg=10),
+
+    # Consumer Discretionary: growth-oriented, FCF lumpy; P/E and regression
+    "🛍️ Consumer Disc.":      dict(dcf=40, ddm=0,  ev=20, pe=25, reg=15),
+
+    # Basic Materials: EV/EBITDA dominant; commodity cycles make DCF noisy
+    "⛏️ Basic Materials":     dict(dcf=20, ddm=10, ev=40, pe=20, reg=10),
+
+    # Quant: for when you trust the peer data more than assumptions
     "🔢 Quant / Regression":  dict(dcf=10, ddm=5,  ev=20, pe=20, reg=45),
 }
 
 SECTOR_TO_PRESET = {
     "Technology":             "💻 Tech / Growth",
-    "Consumer Discretionary": "💻 Tech / Growth",
+    "Consumer Discretionary": "🛍️ Consumer Disc.",
+    "Consumer Cyclical":      "🛍️ Consumer Disc.",
     "Healthcare":             "🏥 Healthcare",
     "Financials":             "🏦 Financials",
     "Financial Services":     "🏦 Financials",
+    "Insurance":              "🏦 Financials",
     "Consumer Staples":       "🛒 Consumer Staples",
-    "Consumer Defensive":      "🛒 Consumer Staples",
-    "Consumer Cyclical":       "💻 Tech / Growth",
+    "Consumer Defensive":     "🛒 Consumer Staples",
     "Energy":                 "🏭 Industrial / Energy",
     "Industrials":            "🏭 Industrial / Energy",
-    "Basic Materials":        "🏭 Industrial / Energy",
+    "Basic Materials":        "⛏️ Basic Materials",
     "Communication Services": "📡 Comm. Services",
     "Utilities":              "⚡ Utilities / REIT",
     "Real Estate":            "⚡ Utilities / REIT",
@@ -378,6 +407,16 @@ if analyze_btn:
         st.session_state["_pending_preset"] = "🏦 Financials"
         st.session_state["active_preset"]   = "🏦 Financials"
     st.session_state["_is_financial"] = is_financial_sector(sector)
+
+    # Auto-zero DDM if dividend yield below 0.5% — DDM meaningless for non-payers
+    div_y_raw = m.get("dividend_yield", 0) or 0
+    div_y_pct = div_y_raw if div_y_raw > 1 else div_y_raw * 100
+    if div_y_pct < 0.5:
+        current_ddm = st.session_state.get("w_ddm", 0)
+        if current_ddm > 0:
+            # Redistribute DDM weight to DCF
+            st.session_state["w_dcf"] = st.session_state.get("w_dcf", 35) + current_ddm
+            st.session_state["w_ddm"] = 0
 
     st.session_state.metrics       = m
     st.session_state.peer_data     = peers

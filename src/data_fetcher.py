@@ -381,7 +381,11 @@ class DataFetcher:
             "exchange": info.get("exchange", ""),
             "description": info.get("longBusinessSummary", ""),
             # Price
-            "current_price": safe(info.get("currentPrice") or info.get("regularMarketPrice"), None),
+            "current_price": safe(
+                info.get("currentPrice") or
+                info.get("regularMarketPrice") or
+                info.get("previousClose"), None
+            ),
             "market_cap": safe(info.get("marketCap"), None),
             "52w_high": safe(info.get("fiftyTwoWeekHigh")),
             "52w_low": safe(info.get("fiftyTwoWeekLow")),
