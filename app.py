@@ -244,7 +244,7 @@ with st.sidebar:
     st.divider()
 
     # Ticker
-    ticker_input = st.text_input("Stock Ticker", value="KO", max_chars=10,
+    ticker_input = st.text_input("Stock Ticker", value="JNJ", max_chars=10,
                                   placeholder="e.g. AAPL, KO, JPM")
     ticker = ticker_input.strip().upper()
     analyze_btn = st.button("▶  ANALYZE", type="primary", use_container_width=True)
