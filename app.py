@@ -383,10 +383,21 @@ if analyze_btn:
     st.session_state.peer_data     = peers
     st.session_state.sensitivity_df = None  # recomputed live
     st.session_state.analysis_done  = True
+    st.session_state["_collapse_sidebar"] = True
     st.rerun()
 
 
 # ── RESULTS ────────────────────────────────────────────────────────────────
+# Auto-collapse sidebar on mobile after analyze
+if st.session_state.get('_collapse_sidebar'):
+    st.session_state['_collapse_sidebar'] = False
+    js = ('<script>'
+          'if(window.innerWidth < 768){'
+          'const b=window.parent.document.querySelector("[data-testid=\\"collapsedControl\\"]");'
+          'if(b)b.click();}'
+          '</script>')
+    st.markdown(js, unsafe_allow_html=True)
+
 if not st.session_state.analysis_done:
     st.title("🔬 IntrinsiQ")
     st.markdown("**McMillin Analytics** · Multi-Method Blended Intrinsic Value Calculator")
