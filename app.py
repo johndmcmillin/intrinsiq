@@ -703,7 +703,7 @@ with col2:
     cache_tag = "🟡 Cached" if m.get("_from_cache") else "🟢 Live"
     st.caption(cache_tag)
     if bv:
-        color = "green" if (upside or 0) > 5 else ("red" if (upside or 0) < -5 else "orange")
+        color = "red" if (upside or 0) > 5 else ("green" if (upside or 0) < -5 else "orange")
         st.markdown(f"### :{color}[${bv:.2f}]")
         st.caption(f"vs ${price:.2f} market · {upside:+.1f}%")
 
