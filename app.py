@@ -17,7 +17,7 @@ from src.models import (
     pe_relative_valuation, regression_valuation, inverse_dcf,
     compute_blended_value, sensitivity_dcf,
     compute_dynamic_wacc, suggest_dcf_assumptions, sanitize_net_debt,
-    excess_return_valuation, pbv_relative_valuation, is_financial_sector,
+    excess_return_valuation, pbv_relative_valuation, is_financial_sector, is_reit_sector,
     MODEL_LABELS, MODEL_COLORS,
 )
 from src.visualizations import (
@@ -502,6 +502,34 @@ if analyze_btn:
         st.session_state["_telco_flag"] = False
         st.session_state["_is_utility"] = False
 
+    # ── REIT detection ───────────────────────────────────────────────────
+    # REITs use FFO (Funds from Operations) not GAAP earnings. Depreciation
+    # on real estate is added back, making reported earnings look terrible.
+    # DCF and P/E massively understate value. EV/EBITDA, DDM, and regression
+    # are the only reliable anchors for REITs.
+    industry = m.get("industry", "")
+    is_reit = is_reit_sector(sector, industry)
+    if is_reit:
+        div_y_reit = m.get("dividend_yield", 0) or 0
+        div_y_reit = div_y_reit if div_y_reit > 1 else div_y_reit * 100
+        # High-yield REITs (O, PLD): lean on DDM + EV/EBITDA
+        # Tower REITs (AMT) pay lower yield — lean on EV/EBITDA + regression
+        if div_y_reit >= 3.0:
+            st.session_state["_pending_dcf"] = 5
+            st.session_state["_pending_ddm"] = 30
+            st.session_state["_pending_ev"]  = 35
+            st.session_state["_pending_reg"] = 25
+            st.session_state["_pending_pe"]  = 5
+        else:
+            st.session_state["_pending_dcf"] = 5
+            st.session_state["_pending_ddm"] = 15
+            st.session_state["_pending_ev"]  = 40
+            st.session_state["_pending_reg"] = 35
+            st.session_state["_pending_pe"]  = 5
+        st.session_state["_reit_flag"] = True
+    else:
+        st.session_state["_reit_flag"] = False
+
     st.session_state.metrics       = m
     st.session_state.peer_data     = peers
     st.session_state.sensitivity_df = None  # recomputed live
@@ -599,6 +627,13 @@ if st.session_state.get("_telco_flag"):
             f"DCF is unreliable due to heavy infrastructure debt. Weights shifted to Regression and EV/EBITDA.",
             icon=None
         )
+if st.session_state.get("_reit_flag"):
+    st.warning(
+        f"🏢 **REIT Detected** — {m.get('name', ticker)} reports FFO (Funds from Operations), not GAAP "
+        f"earnings. Real estate depreciation makes DCF and P/E unreliable. Weights shifted to "
+        f"EV/EBITDA, DDM, and Regression — the standard valuation approach for REITs.",
+        icon=None
+    )
 if is_fin:
     mr["excess_return"] = excess_return_valuation(
         book_value_per_share=m.get("book_value", 0) or 0,

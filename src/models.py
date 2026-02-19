@@ -1060,3 +1060,13 @@ def pbv_relative_valuation(
 def is_financial_sector(sector: str) -> bool:
     """Returns True if the company is in financial services."""
     return sector in ("Financials", "Financial Services", "Insurance")
+
+def is_reit_sector(sector: str, industry: str = "") -> bool:
+    """Returns True if the company is a REIT. REITs use FFO not GAAP earnings,
+    making DCF and P/E unreliable. Detect by sector or industry string."""
+    if sector in ("Real Estate",):
+        return True
+    reit_keywords = ("reit", "real estate investment trust", "industrial reit",
+                     "retail reit", "office reit", "residential reit", "specialized reit",
+                     "healthcare reit", "diversified reit", "mortgage reit")
+    return any(k in industry.lower() for k in reit_keywords)
