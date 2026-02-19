@@ -178,10 +178,17 @@ class DataFetcher:
         def fetch():
             stock = self.yf.Ticker(ticker)
             info = stock.info
+            # Some tickers return sparse dicts under rate limiting — retry once
             if not info or len(info) < 5:
-                raise ValueError("Empty info returned")
+                logger.warning(f"{ticker}: sparse info ({len(info) if info else 0} keys), retrying...")
+                time.sleep(2)
+                info = stock.info
+            if not info or len(info) < 3:
+                raise ValueError(f"Empty info returned for {ticker}")
+            # Ensure name is always populated — fall back to ticker itself
+            if not info.get("longName") and not info.get("shortName"):
+                info["longName"] = ticker.upper()
             # Try to enrich with real-time price from fast_info
-            # Wrapped aggressively — must never block the main info return
             try:
                 live = getattr(stock, "fast_info", None)
                 if live is not None:
@@ -189,7 +196,7 @@ class DataFetcher:
                     if lp and float(lp) > 0:
                         info["_live_price"] = float(lp)
             except Exception:
-                pass  # fast_info is optional — silently skip
+                pass
             return info
 
         return self._get(key, fetch)

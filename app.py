@@ -384,7 +384,7 @@ if analyze_btn:
         m = fetch_metrics(ticker)
 
     if not m or not m.get("name"):
-        st.error(f"Could not fetch data for **{ticker}**. Check the symbol.")
+        st.error(f"Could not fetch data for **{ticker}**. This may be a temporary Yahoo Finance issue — try again in a moment, or check that the ticker is valid.")
         st.stop()
     if not m.get("current_price"):
         st.warning(f"⚠️ Live price unavailable for **{ticker}** — using last known price from cache if available.")
