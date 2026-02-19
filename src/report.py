@@ -459,15 +459,27 @@ def build_sensitivity_table(story, styles, sens, price):
     header = [Paragraph("WACC \\ g", ParagraphStyle("sh", fontName="Helvetica-Bold", fontSize=7.5,
                          textColor=WHITE, alignment=TA_CENTER))]
     for c in cols:
-        header.append(Paragraph(f"g={c:.1%}", ParagraphStyle("sh2", fontName="Helvetica-Bold",
+        try:
+            c_label = f"g={float(c):.1%}"
+        except Exception:
+            c_label = str(c)
+        header.append(Paragraph(c_label, ParagraphStyle("sh2", fontName="Helvetica-Bold",
                                 fontSize=7.5, textColor=WHITE, alignment=TA_CENTER)))
     rows = [header]
 
     for wacc_val in idx:
-        row = [Paragraph(f"r={wacc_val:.1%}", ParagraphStyle("si", fontName="Helvetica-Bold",
+        try:
+            w_label = f"r={float(wacc_val):.1%}"
+        except Exception:
+            w_label = str(wacc_val)
+        row = [Paragraph(w_label, ParagraphStyle("si", fontName="Helvetica-Bold",
                          fontSize=7.5, textColor=WHITE, alignment=TA_CENTER))]
         for g_val in cols:
             v = sens.loc[wacc_val, g_val]
+            try:
+                v = float(v) if v is not None else None
+            except Exception:
+                v = None
             cell_color = GREEN if (v and price and v > price) else (RED if (v and price and v < price * 0.85) else ORANGE)
             row.append(Paragraph(
                 fmt(v) if v else "—",
