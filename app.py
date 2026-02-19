@@ -450,8 +450,11 @@ if analyze_btn:
     de_raw = m.get("debt_to_equity", 0) or 0
     # yfinance returns debtToEquity as percent (250 = 2.5x), normalize
     de_ratio = de_raw / 100 if de_raw > 20 else de_raw
+    # Captive finance only applies to heavy equipment/auto OEMs with lending arms
+    # Raise threshold to 3.0x and exclude pure-play EV/tech companies
+    CAPTIVE_EXCLUSIONS = {"TSLA", "RIVN", "LCID", "NIO", "XPEV", "LI"}
     captive_sectors = ("Industrials", "Consumer Discretionary", "Consumer Cyclical")
-    if sector in captive_sectors and de_ratio > 2.0:
+    if sector in captive_sectors and de_ratio > 3.0 and ticker not in CAPTIVE_EXCLUSIONS:
         current_dcf = st.session_state.get("w_dcf", 25)
         current_ev  = st.session_state.get("w_ev", 35)
         current_reg = st.session_state.get("w_reg", 15)
