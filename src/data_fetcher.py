@@ -180,6 +180,16 @@ class DataFetcher:
             info = stock.info
             if not info or len(info) < 5:
                 raise ValueError("Empty info returned")
+            # Try to enrich with real-time price from fast_info
+            # Wrapped aggressively — must never block the main info return
+            try:
+                live = getattr(stock, "fast_info", None)
+                if live is not None:
+                    lp = getattr(live, "last_price", None) or getattr(live, "previous_close", None)
+                    if lp and float(lp) > 0:
+                        info["_live_price"] = float(lp)
+            except Exception:
+                pass  # fast_info is optional — silently skip
             return info
 
         return self._get(key, fetch)
@@ -419,6 +429,7 @@ class DataFetcher:
             "founded": info.get("founded", ""),
             # Price
             "current_price": safe(
+                info.get("_live_price") or  # fast_info real-time price
                 info.get("currentPrice") or
                 info.get("regularMarketPrice") or
                 info.get("previousClose"), None
