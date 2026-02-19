@@ -32,12 +32,32 @@ def _safe_key(key: str) -> str:
 
 def invalidate_ticker_cache(ticker: str):
     # Delete all cache files associated with a specific ticker
+    # Keys are prefixed: info_TICKER, financials_TICKER, history_TICKER_*
     if not os.path.exists(CACHE_DIR):
         return
-    key = ticker.upper()
-    for path in [_meta_path(key), _data_path(key)]:
-        if os.path.exists(path):
-            os.remove(path)
+    t = ticker.strip().upper()
+    prefixes = [f'info_{t}', f'financials_{t}', f'history_{t}']
+    removed = 0
+    for prefix in prefixes:
+        for path in [_meta_path(prefix), _data_path(prefix)]:
+            if os.path.exists(path):
+                os.remove(path)
+                removed += 1
+    # Also catch history variants like history_TICKER_2y
+    for fn in os.listdir(CACHE_DIR):
+        full = os.path.join(CACHE_DIR, fn)
+        if fn.endswith('.meta'):
+            try:
+                meta = json.load(open(full))
+                if meta.get('key','').startswith(f'history_{t}'):
+                    os.remove(full)
+                    pkl = full.replace('.meta', '.pkl')
+                    if os.path.exists(pkl):
+                        os.remove(pkl)
+                    removed += 1
+            except Exception:
+                pass
+    return removed
 
 
 def _meta_path(key: str) -> str:
@@ -83,7 +103,7 @@ def _save(key: str, data) -> None:
         with open(_data_path(key), "wb") as f:
             pickle.dump(data, f)
         with open(_meta_path(key), "w") as f:
-            json.dump({"ts": time.time(), "dt": datetime.now().isoformat()}, f)
+            json.dump({"ts": time.time(), "dt": datetime.now().isoformat(), "key": key}, f)
     except Exception as e:
         logger.warning(f"Cache write failed: {e}")
 

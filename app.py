@@ -255,7 +255,7 @@ with st.sidebar:
             invalidate_ticker_cache(ticker)
             st.session_state.analysis_done = False
             st.session_state.last_ticker = ""
-            st.toast(f"Cache cleared for {ticker}", icon="🔄")
+            st.session_state["_force_analyze"] = True
             st.rerun()
 
     st.divider()
@@ -361,6 +361,9 @@ with st.sidebar:
 
 
 # ── ANALYZE ────────────────────────────────────────────────────────────────
+if st.session_state.pop("_force_analyze", False):
+    analyze_btn = True
+
 if analyze_btn:
     st.session_state.last_ticker = ticker
 
