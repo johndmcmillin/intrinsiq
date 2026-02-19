@@ -418,10 +418,7 @@ class DataFetcher:
             "employees": safe(info.get("fullTimeEmployees"), None),
             "founded": info.get("founded", ""),
             # Price
-            # fast_info.last_price is real-time and far more reliable than
-            # info["currentPrice"] which is often stale for fast-moving stocks
             "current_price": safe(
-                (stock.fast_info.last_price if hasattr(stock, "fast_info") else None) or
                 info.get("currentPrice") or
                 info.get("regularMarketPrice") or
                 info.get("previousClose"), None
