@@ -677,7 +677,7 @@ if is_fin:
 weights = {"dcf": w_dcf/100, "ddm": w_ddm/100, "ev_ebitda": w_ev/100, "pe_relative": w_pe/100, "regression": w_reg/100}
 bl      = compute_blended_value(mr, weights)
 bv      = bl.get("blended_value")
-upside  = ((bv / price) - 1) * 100 if bv and price else None
+upside  = ((price - bv) / bv) * 100 if bv and price else None
 
 # Sensitivity recomputes live too (fast — pure math)
 sens = sensitivity_dcf(
