@@ -545,7 +545,8 @@ with r1c1: st.metric("Price",   fmt(price))
 with r1c2: st.metric("Mkt Cap", fmt_large(m.get("market_cap")))
 with r1c3: st.metric("Fwd P/E", f"{m.get('pe_forward',0):.1f}x" if m.get("pe_forward") else "—")
 r2c1, r2c2, r2c3 = st.columns(3)
-with r2c1: st.metric("FCF",      fmt_large(m.get("free_cashflow")))
+fcf_display = "N/A (Bank)" if is_financial_sector(m.get("sector","")) else fmt_large(m.get("free_cashflow"))
+with r2c1: st.metric("FCF", fcf_display)
 with r2c2: st.metric("Div Yield", f"{div_y_pct:.2f}%" if div_y else "—")
 with r2c3: st.metric("Beta",      f"{m.get('beta',0):.2f}" if m.get("beta") else "—")
 
@@ -828,6 +829,6 @@ st.markdown(
     'Investing involves risk including loss of principal. '
     'Not a registered investment advisor. '
     'Always consult a qualified financial professional before making investment decisions.<br>'
-    '© 2025 McMillin Analytics · All rights reserved.</div>',
+    '© 2026 McMillin Analytics · All rights reserved.</div>',
     unsafe_allow_html=True,
 )
