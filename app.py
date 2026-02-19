@@ -581,6 +581,18 @@ if st.session_state.get("_telco_flag"):
             f"weighted higher for more reliable valuation.",
             icon=None
         )
+        # Growth utility caveat — low yield + premium sector suggests market is pricing
+        # future capacity (renewables, AI power demand) not captured in current financials
+        div_y_check = m.get("dividend_yield", 0) or 0
+        div_y_check = div_y_check if div_y_check > 1 else div_y_check * 100
+        if div_y_check < 3.0:
+            st.info(
+                f"🌱 **Growth Utility Note** — {m.get('name', ticker)} trades at a significant premium "
+                f"to traditional utility peers due to its renewables pipeline and AI/data center power "
+                f"demand narrative. Like high-growth story stocks, fundamental models may materially "
+                f"understate market value. Use this valuation as a floor, not a target.",
+                icon=None
+            )
     else:
         st.warning(
             f"📡 **Telecom Detected** — {m.get('name', ticker)} is a capital-intensive, regulated carrier. "
