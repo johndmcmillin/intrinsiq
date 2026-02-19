@@ -705,7 +705,8 @@ with col2:
     if bv:
         color = "green" if (upside or 0) > 5 else ("red" if (upside or 0) < -5 else "orange")
         st.markdown(f"### :{color}[${bv:.2f}]")
-        st.caption(f"vs ${price:.2f} market · {upside:+.1f}% upside")
+        label = "upside" if (upside or 0) >= 0 else "downside risk"
+        st.caption(f"vs ${price:.2f} market · {upside:+.1f}% {label}")
 
 # PDF Export
 try:
