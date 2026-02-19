@@ -12,6 +12,8 @@ import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
 
 from src.data_fetcher import DataFetcher, invalidate_ticker_cache
+from datetime import datetime
+from src.report import generate_pdf_report
 from src.models import (
     dcf_valuation, ddm_valuation, ev_ebitda_valuation,
     pe_relative_valuation, regression_valuation, inverse_dcf,
@@ -704,6 +706,22 @@ with col2:
         color = "green" if (upside or 0) > 5 else ("red" if (upside or 0) < -5 else "orange")
         st.markdown(f"### :{color}[${bv:.2f}]")
         st.caption(f"vs ${price:.2f} market · {upside:+.1f}%")
+
+# PDF Export
+try:
+    pdf_bytes = generate_pdf_report(
+        m=m, mr=mr, weights=weights,
+        bv=bv, upside=upside, price=price, sens=sens,
+    )
+    st.download_button(
+        label="📄 Download Valuation Report (PDF)",
+        data=pdf_bytes,
+        file_name=f"IntrinsiQ_{m.get('ticker','report')}_{datetime.now().strftime('%Y%m%d')}.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+    )
+except Exception as e:
+    st.caption(f"PDF generation unavailable: {e}")
 
 st.divider()
 
