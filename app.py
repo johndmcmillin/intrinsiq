@@ -472,24 +472,35 @@ if analyze_btn:
         st.session_state["_captive_finance_flag"] = False
         st.session_state["_captive_de_ratio"] = None
 
-    # ── Telco detection ───────────────────────────────────────────────────
-    # AT&T, Verizon etc. live in Communication Services but are nothing like
-    # Netflix or Meta. High D/E (debt-financed spectrum/infrastructure),
-    # regulated, capital-heavy. DCF wildly overstates value due to debt mismatch.
-    # Regression and EV/EBITDA are far more reliable for telcos.
+    # ── Regulated / Capital-Intensive detection ──────────────────────────
+    # Telcos (AT&T, VZ) and Utilities (NEE, DUK) share the same problem:
+    # massive regulated debt destroys DCF. Value is driven by yield, rate
+    # environment, and peer EV/EBITDA — not discounted cash flows.
     TELCO_TICKERS = {"T", "VZ", "TMUS", "LUMN", "TDS", "USM"}
     de_ratio_cs = de_raw / 100 if de_raw > 20 else de_raw
-    is_telco = (sector in ("Communication Services",) and de_ratio_cs > 1.5) or ticker in TELCO_TICKERS
-    if is_telco and not is_financial_sector(sector):
-        # Shift weight hard away from DCF toward regression and EV/EBITDA
-        st.session_state["_pending_dcf"] = 10
-        st.session_state["_pending_ddm"] = 20
-        st.session_state["_pending_ev"]  = 30
-        st.session_state["_pending_reg"] = 30
-        st.session_state["_pending_pe"]  = 10
+    is_utility  = sector in ("Utilities",)
+    is_telco    = (sector in ("Communication Services",) and de_ratio_cs > 1.5) or ticker in TELCO_TICKERS
+    is_regulated = (is_utility or is_telco) and not is_financial_sector(sector)
+    if is_regulated:
+        if is_utility:
+            # Utilities: lean on DDM (stable growing dividends) + EV/EBITDA + regression
+            st.session_state["_pending_dcf"] = 10
+            st.session_state["_pending_ddm"] = 30
+            st.session_state["_pending_ev"]  = 25
+            st.session_state["_pending_reg"] = 25
+            st.session_state["_pending_pe"]  = 10
+        else:
+            # Telcos: regression and EV/EBITDA dominant
+            st.session_state["_pending_dcf"] = 10
+            st.session_state["_pending_ddm"] = 20
+            st.session_state["_pending_ev"]  = 30
+            st.session_state["_pending_reg"] = 30
+            st.session_state["_pending_pe"]  = 10
         st.session_state["_telco_flag"] = True
+        st.session_state["_is_utility"] = is_utility
     else:
         st.session_state["_telco_flag"] = False
+        st.session_state["_is_utility"] = False
 
     st.session_state.metrics       = m
     st.session_state.peer_data     = peers
@@ -563,11 +574,19 @@ if st.session_state.get("_captive_finance_flag"):
         icon=None
     )
 if st.session_state.get("_telco_flag"):
-    st.warning(
-        f"📡 **Telecom Detected** — {m.get('name', ticker)} is a capital-intensive, regulated carrier. "
-        f"DCF is unreliable due to heavy infrastructure debt. Weights shifted to Regression and EV/EBITDA.",
-        icon=None
-    )
+    if st.session_state.get("_is_utility"):
+        st.warning(
+            f"⚡ **Regulated Utility Detected** — {m.get('name', ticker)} carries heavy infrastructure "
+            f"debt typical of regulated utilities. DCF weight reduced; DDM, EV/EBITDA and Regression "
+            f"weighted higher for more reliable valuation.",
+            icon=None
+        )
+    else:
+        st.warning(
+            f"📡 **Telecom Detected** — {m.get('name', ticker)} is a capital-intensive, regulated carrier. "
+            f"DCF is unreliable due to heavy infrastructure debt. Weights shifted to Regression and EV/EBITDA.",
+            icon=None
+        )
 if is_fin:
     mr["excess_return"] = excess_return_valuation(
         book_value_per_share=m.get("book_value", 0) or 0,
