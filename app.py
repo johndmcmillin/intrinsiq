@@ -172,6 +172,14 @@ if "_pending_g2" in st.session_state:
     st.session_state["s_g2"]   = st.session_state.pop("_pending_g2")
 if "_pending_tg" in st.session_state:
     st.session_state["s_tg"]   = st.session_state.pop("_pending_tg")
+if "_pending_dcf" in st.session_state:
+    st.session_state["w_dcf"]  = st.session_state.pop("_pending_dcf")
+if "_pending_ddm" in st.session_state:
+    st.session_state["w_ddm"]  = st.session_state.pop("_pending_ddm")
+if "_pending_ev" in st.session_state:
+    st.session_state["w_ev"]   = st.session_state.pop("_pending_ev")
+if "_pending_reg" in st.session_state:
+    st.session_state["w_reg"]  = st.session_state.pop("_pending_reg")
 
 # ── Disclaimer gate ────────────────────────────────────────────────────────
 if not st.session_state.disclaimer_ok:
@@ -371,9 +379,11 @@ if analyze_btn:
     with st.spinner(f"Fetching {ticker}..."):
         m = fetch_metrics(ticker)
 
-    if not m or not m.get("current_price"):
+    if not m or not m.get("name"):
         st.error(f"Could not fetch data for **{ticker}**. Check the symbol.")
         st.stop()
+    if not m.get("current_price"):
+        st.warning(f"⚠️ Live price unavailable for **{ticker}** — using last known price from cache if available.")
 
     # Manual FCF override
     if use_mfcf and m_fcf != 0:
@@ -428,9 +438,9 @@ if analyze_btn:
     if div_y_pct < 1.0:  # zero DDM for yields below 1% — too small to be meaningful
         current_ddm = st.session_state.get("w_ddm", 0)
         if current_ddm > 0:
-            # Redistribute DDM weight to DCF
-            st.session_state["w_dcf"] = st.session_state.get("w_dcf", 35) + current_ddm
-            st.session_state["w_ddm"] = 0
+            # Use _pending_ pattern — direct widget key assignment crashes Streamlit
+            st.session_state["_pending_dcf"] = st.session_state.get("w_dcf", 35) + current_ddm
+            st.session_state["_pending_ddm"] = 0
 
     # ── Captive finance detection ─────────────────────────────────────────
     # Companies with captive finance arms (CAT, DE, CNH, AGCO) report massive
@@ -446,11 +456,11 @@ if analyze_btn:
         current_ev  = st.session_state.get("w_ev", 35)
         current_reg = st.session_state.get("w_reg", 15)
         if current_dcf > 10:
-            # Shift DCF weight to EV/EBITDA and regression
+            # Use _pending_ pattern — direct widget key assignment crashes Streamlit
             shift = current_dcf - 10
-            st.session_state["w_dcf"] = 10
-            st.session_state["w_ev"]  = min(current_ev + int(shift * 0.6), 55)
-            st.session_state["w_reg"] = min(current_reg + int(shift * 0.4), 30)
+            st.session_state["_pending_dcf"] = 10
+            st.session_state["_pending_ev"]  = min(current_ev + int(shift * 0.6), 55)
+            st.session_state["_pending_reg"] = min(current_reg + int(shift * 0.4), 30)
         st.session_state["_captive_finance_flag"] = True
         st.session_state["_captive_de_ratio"] = round(de_ratio, 2)
     else:
