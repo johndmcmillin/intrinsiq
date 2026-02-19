@@ -180,6 +180,8 @@ if "_pending_ev" in st.session_state:
     st.session_state["w_ev"]   = st.session_state.pop("_pending_ev")
 if "_pending_reg" in st.session_state:
     st.session_state["w_reg"]  = st.session_state.pop("_pending_reg")
+if "_pending_pe" in st.session_state:
+    st.session_state["w_pe"]   = st.session_state.pop("_pending_pe")
 
 # ── Disclaimer gate ────────────────────────────────────────────────────────
 if not st.session_state.disclaimer_ok:
@@ -470,6 +472,25 @@ if analyze_btn:
         st.session_state["_captive_finance_flag"] = False
         st.session_state["_captive_de_ratio"] = None
 
+    # ── Telco detection ───────────────────────────────────────────────────
+    # AT&T, Verizon etc. live in Communication Services but are nothing like
+    # Netflix or Meta. High D/E (debt-financed spectrum/infrastructure),
+    # regulated, capital-heavy. DCF wildly overstates value due to debt mismatch.
+    # Regression and EV/EBITDA are far more reliable for telcos.
+    TELCO_TICKERS = {"T", "VZ", "TMUS", "LUMN", "TDS", "USM"}
+    de_ratio_cs = de_raw / 100 if de_raw > 20 else de_raw
+    is_telco = (sector in ("Communication Services",) and de_ratio_cs > 1.5) or ticker in TELCO_TICKERS
+    if is_telco and not is_financial_sector(sector):
+        # Shift weight hard away from DCF toward regression and EV/EBITDA
+        st.session_state["_pending_dcf"] = 10
+        st.session_state["_pending_ddm"] = 20
+        st.session_state["_pending_ev"]  = 30
+        st.session_state["_pending_reg"] = 30
+        st.session_state["_pending_pe"]  = 10
+        st.session_state["_telco_flag"] = True
+    else:
+        st.session_state["_telco_flag"] = False
+
     st.session_state.metrics       = m
     st.session_state.peer_data     = peers
     st.session_state.sensitivity_df = None  # recomputed live
@@ -539,6 +560,12 @@ if st.session_state.get("_captive_finance_flag"):
         f"⚠️ **Captive Finance Detected** (D/E: {de}x) — {m.get('name', ticker)} operates a "
         f"captive lending arm that inflates reported debt. DCF weight auto-reduced; "
         f"EV/EBITDA and Regression weighted higher for more reliable valuation.",
+        icon=None
+    )
+if st.session_state.get("_telco_flag"):
+    st.warning(
+        f"📡 **Telecom Detected** — {m.get('name', ticker)} is a capital-intensive, regulated carrier. "
+        f"DCF is unreliable due to heavy infrastructure debt. Weights shifted to Regression and EV/EBITDA.",
         icon=None
     )
 if is_fin:
